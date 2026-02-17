@@ -5,21 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Navigation Display ARC Experiment</title>
   <style>
-    @font-face {
-      font-family: "ND Departure Mono";
-      src:
-        url("./fonts/DepartureMono-Regular.woff2") format("woff2"),
-        local("Departure Mono"),
-        local("DepartureMono"),
-        local("DepartureMono Nerd Font"),
-        local("DepartureMono Nerd Font Mono"),
-        local("Departure Mono Nerd Font"),
-        local("Departure Mono Nerd Font Mono");
-      font-style: normal;
-      font-weight: 400 500;
-      font-display: block;
-    }
-
     :root {
       --bg: #000000;
       --white-primary: #F2F2F2;
@@ -38,7 +23,7 @@
       min-height: 100%;
       background: var(--bg);
       color: var(--white-primary);
-      font-family: "ND Departure Mono", "Departure Mono", "DepartureMono", "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
+      font-family: "JetBrains Mono", "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
       font-feature-settings: "tnum";
     }
 
@@ -177,10 +162,10 @@
 
   <script>
     document.fonts.ready.then(() => {
-      const hasDeparture = document.fonts.check('16px "ND Departure Mono"');
-      document.documentElement.setAttribute('data-departure-loaded', hasDeparture ? 'true' : 'false');
-      if (!hasDeparture) {
-        console.warn('Departure Mono not found locally. Install the font or add a local @font-face file.');
+      const hasJetBrainsMono = document.fonts.check('16px "JetBrains Mono"');
+      document.documentElement.setAttribute('data-jetbrains-mono-loaded', hasJetBrainsMono ? 'true' : 'false');
+      if (!hasJetBrainsMono) {
+        console.warn('JetBrains Mono not found locally. Install the font to match the intended look.');
       }
     });
 

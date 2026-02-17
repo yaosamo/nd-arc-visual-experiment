@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Navigation Display ARC Experiment</title>
+  <style>
+    @font-face {
+      font-family: "ND Departure Mono";
+      src:
+        url("./fonts/DepartureMono-Regular.woff2") format("woff2"),
+        local("Departure Mono"),
+        local("DepartureMono"),
+        local("DepartureMono Nerd Font"),
+        local("DepartureMono Nerd Font Mono"),
+        local("Departure Mono Nerd Font"),
+        local("Departure Mono Nerd Font Mono");
+      font-style: normal;
+      font-weight: 400 500;
+      font-display: block;
+    }
+
+    :root {
+      --bg: #000000;
+      --white-primary: #F2F2F2;
+      --white-dim: #CFCFCF;
+      --green-primary: #00FF66;
+      --green-dim: #00CC55;
+      --gray-muted: #9A9A9A;
+      --green-fill-soft: rgba(0,255,102,0.18);
+      --green-border: #00FF66;
+      --amber-fail: #FFB000;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--white-primary);
+      font-family: "ND Departure Mono", "Departure Mono", "DepartureMono", "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
+      font-feature-settings: "tnum";
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    svg {
+      width: min(640px, 100vw - 32px);
+      height: auto;
+      background: var(--bg);
+      shape-rendering: crispEdges;
+      text-rendering: geometricPrecision;
+    }
+
+    .white-primary { fill: var(--white-primary); }
+    .white-dim { fill: var(--white-dim); }
+    .green-primary { fill: var(--green-primary); }
+    .green-dim { fill: var(--green-dim); }
+    .gray-muted { fill: var(--gray-muted); }
+    .stroke-white-primary { stroke: var(--white-primary); fill: none; }
+    .stroke-white-dim { stroke: var(--white-dim); fill: none; }
+    .stroke-green-primary { stroke: var(--green-primary); fill: none; }
+
+    .text-20 { font-size: 20px; font-weight: 400; letter-spacing: 0; }
+    .text-18 { font-size: 18px; font-weight: 400; }
+    .text-16 { font-size: 16px; font-weight: 400; }
+    .text-14 { font-size: 14px; font-weight: 400; }
+    .text-22 { font-size: 22px; font-weight: 500; letter-spacing: 0; }
+    .waypoint-id { letter-spacing: 0.5px; }
+
+    #compass-rotation-layer {
+      transform-origin: 320px 520px;
+      transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    #heading-bug-layer {
+      transform-origin: 320px 520px;
+      transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .range-ring {
+      transition: opacity 120ms linear;
+      opacity: 0.9;
+    }
+
+    .range-ring.dimmed {
+      opacity: 0.25;
+    }
+
+    .waypoint {
+      cursor: default;
+    }
+
+    .waypoint .marker {
+      transform-box: fill-box;
+      transform-origin: center;
+      transition: transform 100ms ease-out;
+    }
+
+    .waypoint .label {
+      transition: fill 100ms ease-out;
+    }
+
+    .waypoint:hover .marker {
+      transform: scale(1.2);
+    }
+
+    .waypoint:hover .label {
+      fill: #FFFFFF;
+    }
+
+    #nd-root.fail .active {
+      fill: var(--amber-fail);
+      stroke: var(--amber-fail);
+    }
+
+    #nd-root.fail .flash {
+      animation: fail-flash 1s steps(2, end) infinite;
+    }
+
+    @keyframes fail-flash {
+      0% { opacity: 1; }
+      50% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <svg id="nd-root" viewBox="0 0 640 720" role="img" aria-label="Navigation display ARC mode">
+    <rect x="0" y="0" width="640" height="720" fill="#000000" />
+
+    <g id="top-left-data">
+      <text x="40" y="58" class="text-20 green-primary active">GS 433 TAS 439</text>
+      <text x="40" y="84" class="text-18 green-primary active">191 / 17</text>
+      <path d="M40 100 L54 100 M40 100 L46 95 M40 100 L46 105" class="stroke-green-primary active" stroke-width="2" />
+    </g>
+
+    <g id="top-right-dest" text-anchor="end">
+      <text x="600" y="58" class="text-20 white-primary">ADORU 116°</text>
+      <text x="600" y="84" class="text-20 green-primary active">213 NM</text>
+      <text x="600" y="110" class="text-20 green-primary active">22:47</text>
+    </g>
+
+    <g id="compass-rotation-layer">
+      <path id="outer-arc" class="stroke-white-primary" stroke-width="2" />
+      <g id="range-rings"></g>
+      <g id="tick-layer"></g>
+      <g id="numeral-layer"></g>
+      <g id="range-labels"></g>
+      <g id="waypoints"></g>
+    </g>
+
+    <g id="heading-bug-layer" class="flash">
+      <line id="heading-line" x1="320" y1="520" x2="320" y2="220" class="stroke-green-primary active" stroke-width="3" />
+      <circle id="heading-marker" cx="320" cy="220" r="6" class="stroke-green-primary active" stroke-width="2" />
+    </g>
+
+    <g id="aircraft-symbol">
+      <line x1="320" y1="508" x2="320" y2="532" class="stroke-white-primary" stroke-width="3" />
+      <line x1="300" y1="520" x2="340" y2="520" class="stroke-white-primary" stroke-width="3" />
+    </g>
+
+    <g id="lower-left-info">
+      <rect x="60" y="596" width="60" height="24" fill="rgba(0,255,102,0.18)" stroke="#00FF66" stroke-width="1" />
+      <text x="90" y="613" text-anchor="middle" class="text-16 green-primary active">01H 34'</text>
+
+      <text x="60" y="648" class="text-18 white-primary">VOR1</text>
+      <text x="60" y="674" class="text-18 white-primary">NIS</text>
+      <text x="60" y="698" class="text-16 green-primary active">34 NM</text>
+    </g>
+  </svg>
+
+  <script>
+    document.fonts.ready.then(() => {
+      const hasDeparture = document.fonts.check('16px "ND Departure Mono"');
+      document.documentElement.setAttribute('data-departure-loaded', hasDeparture ? 'true' : 'false');
+      if (!hasDeparture) {
+        console.warn('Departure Mono not found locally. Install the font or add a local @font-face file.');
+      }
+    });
+
+    const center = { x: 320, y: 520 };
+    const svg = document.getElementById('nd-root');
+    const compassLayer = document.getElementById('compass-rotation-layer');
+    const headingLayer = document.getElementById('heading-bug-layer');
+    const outerArc = document.getElementById('outer-arc');
+    const tickLayer = document.getElementById('tick-layer');
+    const numeralLayer = document.getElementById('numeral-layer');
+    const ringLayer = document.getElementById('range-rings');
+    const rangeLabelLayer = document.getElementById('range-labels');
+    const waypointLayer = document.getElementById('waypoints');
+
+    const arcStart = 210;
+    const arcEnd = 330;
+
+    function polarToCartesian(cx, cy, radius, deg) {
+      const radians = (deg * Math.PI) / 180;
+      return {
+        x: Math.round(cx + radius * Math.cos(radians)),
+        y: Math.round(cy + radius * Math.sin(radians))
+      };
+    }
+
+    function describeArc(cx, cy, radius, startDeg, endDeg) {
+      const start = polarToCartesian(cx, cy, radius, endDeg);
+      const end = polarToCartesian(cx, cy, radius, startDeg);
+      const delta = endDeg - startDeg;
+      const largeArc = delta <= 180 ? 0 : 1;
+      return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 0 ${end.x} ${end.y}`;
+    }
+
+    outerArc.setAttribute('d', describeArc(center.x, center.y, 300, arcStart, arcEnd));
+
+    const radii = [240, 180, 120];
+    radii.forEach((radius, index) => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', describeArc(center.x, center.y, radius, arcStart, arcEnd));
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#CFCFCF');
+      path.setAttribute('stroke-width', '1');
+      path.setAttribute('stroke-dasharray', '6 6');
+      path.setAttribute('class', 'range-ring');
+      if (index === 2) {
+        path.classList.add('dimmed');
+      }
+      ringLayer.appendChild(path);
+    });
+
+    const rangeLabels = [
+      { text: '80', angle: 236, radius: 182 },
+      { text: '120', angle: 304, radius: 182 }
+    ];
+
+    rangeLabels.forEach(({ text, angle, radius }) => {
+      const p = polarToCartesian(center.x, center.y, radius, angle);
+      const node = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      node.setAttribute('x', p.x);
+      node.setAttribute('y', p.y);
+      node.setAttribute('text-anchor', 'middle');
+      node.setAttribute('class', 'text-16 white-dim');
+      node.textContent = text;
+      rangeLabelLayer.appendChild(node);
+    });
+
+    for (let deg = arcStart; deg <= arcEnd; deg += 5) {
+      const major = deg % 10 === 0;
+      const length = major ? 16 : 8;
+      const strokeWidth = major ? 2 : 1;
+
+      const p1 = polarToCartesian(center.x, center.y, 300, deg);
+      const p2 = polarToCartesian(center.x, center.y, 300 - length, deg);
+
+      const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      tick.setAttribute('x1', p1.x);
+      tick.setAttribute('y1', p1.y);
+      tick.setAttribute('x2', p2.x);
+      tick.setAttribute('y2', p2.y);
+      tick.setAttribute('stroke', '#F2F2F2');
+      tick.setAttribute('stroke-width', String(strokeWidth));
+      tickLayer.appendChild(tick);
+    }
+
+    const numeralStart = 235;
+    for (let value = 8; value <= 15; value += 1) {
+      const angle = numeralStart + (value - 8) * 10;
+      const textPos = polarToCartesian(center.x, center.y, 328, angle);
+      const numeral = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      numeral.setAttribute('x', textPos.x);
+      numeral.setAttribute('y', textPos.y + 7);
+      numeral.setAttribute('text-anchor', 'middle');
+      numeral.setAttribute('class', 'text-22 white-primary');
+      numeral.textContent = String(value);
+      numeralLayer.appendChild(numeral);
+    }
+
+    function starPath(cx, cy, outerR, innerR, points) {
+      const step = Math.PI / points;
+      let d = '';
+      for (let i = 0; i < points * 2; i++) {
+        const r = i % 2 === 0 ? outerR : innerR;
+        const a = i * step - Math.PI / 2;
+        const x = Math.round(cx + Math.cos(a) * r);
+        const y = Math.round(cy + Math.sin(a) * r);
+        d += `${i === 0 ? 'M' : 'L'} ${x} ${y} `;
+      }
+      return `${d}Z`;
+    }
+
+    function addWaypoint(name, x, y, constraint) {
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', 'waypoint');
+
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      marker.setAttribute('d', starPath(x, y, 5, 2.5, 8));
+      marker.setAttribute('fill', 'none');
+      marker.setAttribute('stroke', '#F2F2F2');
+      marker.setAttribute('stroke-width', '2');
+      marker.setAttribute('class', 'marker');
+      group.appendChild(marker);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', x + 12);
+      label.setAttribute('y', y + 6);
+      label.setAttribute('class', 'text-18 white-primary waypoint-id label');
+      label.textContent = name;
+      group.appendChild(label);
+
+      if (constraint) {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        c.setAttribute('x', x + 12);
+        c.setAttribute('y', y + 26);
+        c.setAttribute('class', 'text-16 white-dim');
+        c.textContent = constraint;
+        group.appendChild(c);
+
+        const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        diamond.setAttribute('d', `M ${x + 4} ${y + 17} L ${x + 7} ${y + 20} L ${x + 4} ${y + 23} L ${x + 1} ${y + 20} Z`);
+        diamond.setAttribute('fill', 'none');
+        diamond.setAttribute('stroke', '#F2F2F2');
+        diamond.setAttribute('stroke-width', '1');
+        group.appendChild(diamond);
+      }
+
+      waypointLayer.appendChild(group);
+    }
+
+    addWaypoint('ADORU', 360, 332, '+20');
+    addWaypoint('NIS', 258, 350, null);
+
+    let track = 0;
+    let selectedHeading = 0;
+    let rangeState = 0;
+
+    function applyTransforms() {
+      compassLayer.style.transform = `rotate(${-track}deg)`;
+      headingLayer.style.transform = `rotate(${selectedHeading}deg)`;
+    }
+
+    function cycleRangeState() {
+      const rings = [...document.querySelectorAll('.range-ring')];
+      rings.forEach((ring, index) => {
+        ring.classList.toggle('dimmed', index !== rangeState);
+      });
+      rangeState = (rangeState + 1) % rings.length;
+    }
+
+    let t = 0;
+    function animate() {
+      t += 0.03;
+      track = Math.sin(t * 0.5) * 6;
+      selectedHeading = Math.sin(t) * 12;
+      applyTransforms();
+      requestAnimationFrame(animate);
+    }
+
+    applyTransforms();
+    animate();
+    setInterval(cycleRangeState, 1500);
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key.toLowerCase() === 'f') {
+        svg.classList.toggle('fail');
+      }
+    });
+  </script>
+</body>
+</html>
